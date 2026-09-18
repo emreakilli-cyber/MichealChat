@@ -117,6 +117,10 @@ button:disabled{opacity:.4}
       sub=document.getElementById("sub"),
       empty=document.getElementById("empty");
 
+  // gizli gist ham adresi (jeton yok; kimlik doğrulamasız okunur)
+  var GIST="https://gist.githubusercontent.com/emreakilli-cyber/44a280481043c781c59857e6389f5ef5/raw/MichealChat";
+  var lastSync=0;
+
   // ---- depolama (localStorage; erişilemezse bellekte) ----
   var mem=[];
   function load(){
@@ -150,9 +154,14 @@ button:disabled{opacity:.4}
         list.appendChild(row);
       });
     }
-    var last=mem.length?mem[mem.length-1].ts:null;
-    sub.textContent="SON GÜNCELLEME "+(last?fmt(last):"—");
+    syncLabel();
     list.scrollTop=list.scrollHeight;
+  }
+
+  // başlık saati: başarılı çekiş varsa onu, yoksa son mesaj saatini göster
+  function syncLabel(){
+    var t=lastSync||(mem.length?mem[mem.length-1].ts:null);
+    sub.textContent="SON GÜNCELLEME "+(t?fmt(t):"—");
   }
 
   function add(from,text,ts){
@@ -181,6 +190,35 @@ button:disabled{opacity:.4}
     add("michael",txt,Date.now());
   }
 
+  // ---- GELEN (asıl): gist'ten çek ----
+  function hasId(id){ for(var i=0;i<mem.length;i++) if(mem[i].id===id) return true; return false; }
+  function ingest(arr){
+    if(!Array.isArray(arr)) return;
+    var changed=false;
+    for(var i=0;i<arr.length;i++){
+      var it=arr[i]; if(!it || it.text==null) continue;
+      var txt=String(it.text); if(!txt.trim()) continue;
+      var ts=it.ts||Date.now();
+      var id=it.id||mkId(txt,ts);
+      if(hasId(id)) continue;
+      mem.push({id:id,from:"michael",text:txt,ts:ts});
+      changed=true;
+    }
+    if(changed){ mem.sort(function(a,b){return (a.ts||0)-(b.ts||0);}); save(); render(); }
+  }
+  var polling=false;
+  function pollGist(){
+    if(polling) return; polling=true;
+    fetch(GIST+"?t="+Date.now(),{cache:"no-store"})
+      .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+      .then(function(data){ ingest(data); lastSync=Date.now(); syncLabel(); })
+      .catch(function(){ /* ağ hatası: sessiz, sonraki turda yeniden dene */ })
+      .then(function(){ polling=false; });
+  }
+  var pollTimer=null;
+  function startPoll(){ if(pollTimer) return; pollGist(); pollTimer=setInterval(pollGist,10000); }
+  function stopPoll(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
+
   // ---- GİDEN: kestirmeyi tetikle ----
   function sendOut(){
     var t=inp.value.trim(); if(!t) return;
@@ -201,8 +239,13 @@ button:disabled{opacity:.4}
   window.addEventListener("hashchange",readIncoming);
   // sayfa geri geldiğinde (kestirme dönüşü) yeni #in olabilir
   window.addEventListener("pageshow",readIncoming);
+  // sekme arkaplandayken çekmeyi durdur; öne gelince hemen bir kere çek
+  document.addEventListener("visibilitychange",function(){
+    if(document.hidden) stopPoll(); else startPoll();
+  });
 
   load(); render(); readIncoming();
+  if(!document.hidden) startPoll();
 })();
 </script>
 </body>
