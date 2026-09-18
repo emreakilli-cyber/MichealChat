@@ -142,11 +142,42 @@ main{flex:1 1 auto;overflow:hidden;min-width:0;position:relative;display:flex}
 .md th{background:var(--cth-control-base);font-family:var(--cth-font-mono);font-size:11px;
   text-transform:uppercase;color:var(--cth-ink-700)}
 
-/* ---- SOHBET alt yazma kutusu (yalnız sohbet sekmesinde) ---- */
+/* ---- SOR (ASK ME): soru kartları ---- */
+.soru{background:var(--cth-control-raised);border:1px solid var(--cth-connector);
+  border-left:3px solid var(--cth-lilac);border-radius:10px;padding:11px}
+.soru.cevaplandi{opacity:.45}
+.soru .sbas{font-family:var(--cth-font-mono);font-size:10px;color:var(--cth-ink-500);
+  text-transform:uppercase;letter-spacing:.5px;display:flex;justify-content:space-between;gap:8px}
+.soru .rozet-gonder{color:var(--cth-mint)}
+.soru .smetin{margin:6px 0 8px}
+.soru .secenekler{display:flex;flex-direction:column;gap:6px}
+.sec-dugme{text-align:left;background:var(--cth-control-base);color:var(--cth-ink-900);
+  border:1px solid var(--cth-connector);border-radius:8px;padding:9px 11px;font-family:var(--cth-font-ui);
+  font-size:14px;cursor:pointer;line-height:1.3}
+.sec-dugme:active{background:var(--cth-surface-active);border-color:var(--cth-accent)}
+.sec-dugme b{font-family:var(--cth-font-mono);color:var(--cth-accent-text);margin-right:6px}
+.serbest{display:flex;gap:6px;margin-top:8px}
+.serbest input{flex:1;min-width:0;background:var(--cth-control-base);color:var(--cth-ink-900);
+  border:1px solid var(--cth-connector);border-radius:8px;padding:8px 10px;font-family:var(--cth-font-ui);
+  font-size:14px;outline:none}
+.serbest input:focus{border-color:var(--cth-accent)}
+.serbest .yolla{flex:0 0 auto;height:36px;padding:0 12px;border:1px solid var(--cth-accent-line);
+  border-radius:8px;background:var(--cth-accent);color:var(--cth-accent-ink);
+  font-family:var(--cth-font-display);font-size:8px;text-transform:uppercase;cursor:pointer}
+
+/* ---- SOHBET alt yazma kutusu + KOMUT paleti (yalnız sohbet sekmesinde) ---- */
 footer{flex:0 0 auto;background:var(--cth-cream-100);border-top:1px solid var(--cth-connector);
-  padding:10px 12px calc(10px + env(safe-area-inset-bottom)) 12px;
-  display:flex;gap:8px;align-items:flex-end}
+  padding:8px 12px calc(10px + env(safe-area-inset-bottom)) 12px;
+  display:flex;flex-direction:column;gap:8px}
 footer.gizli{display:none}
+.komutlar{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;align-items:center}
+.komutlar::-webkit-scrollbar{height:0}
+.kchip{flex:0 0 auto;background:var(--cth-control-base);color:var(--cth-accent-text);
+  border:1px solid var(--cth-connector);border-radius:14px;padding:5px 11px;
+  font-family:var(--cth-font-mono);font-size:11px;cursor:pointer;white-space:nowrap}
+.kchip:active{background:var(--cth-surface-active);border-color:var(--cth-accent)}
+.kchip.tehlike{color:var(--cth-coral)}
+.yaz-satir{display:flex;gap:8px;align-items:flex-end}
 textarea{flex:1;resize:none;max-height:120px;min-height:42px;
   background:var(--cth-control-base);color:var(--cth-ink-900);
   border:1px solid var(--cth-connector);border-radius:10px;
@@ -174,6 +205,7 @@ button:disabled{opacity:.4}
   <button class="tab" data-p="ofis" type="button">Ofis</button>
   <button class="tab" data-p="gorevler" type="button">Görevler</button>
   <button class="tab" data-p="plan" type="button">Plan</button>
+  <button class="tab" data-p="sor" type="button">Sor<span class="rozet" id="sor-rozet" style="display:none">0</span></button>
 </nav>
 
 <main>
@@ -183,11 +215,23 @@ button:disabled{opacity:.4}
   <section class="panel" id="p-ofis"><div class="empty">Ofis verisi bekleniyor…</div></section>
   <section class="panel" id="p-gorevler"><div class="empty">Görev verisi bekleniyor…</div></section>
   <section class="panel" id="p-plan"><div class="empty">Plan bekleniyor…</div></section>
+  <section class="panel" id="p-sor"><div class="empty">Açık soru yok.</div></section>
 </main>
 
 <footer id="chat-foot">
-  <textarea id="inp" placeholder="Michael'a yaz…" rows="1" autocomplete="off"></textarea>
-  <button class="gonder" id="send" type="button">GÖNDER</button>
+  <div class="komutlar" id="komutlar">
+    <span class="kchip" data-k="/kota">/kota</span>
+    <span class="kchip" data-k="/durum">/durum</span>
+    <span class="kchip tehlike" data-k="/dur">/dur</span>
+    <span class="kchip" data-k="/devam">/devam</span>
+    <span class="kchip" data-k="/plan">/plan</span>
+    <span class="kchip" data-k="@gorev">/görev…</span>
+    <input id="kcmd" placeholder="/komut…" autocomplete="off" style="flex:1 0 90px;min-width:90px;background:var(--cth-control-base);color:var(--cth-ink-900);border:1px solid var(--cth-connector);border-radius:14px;padding:5px 11px;font-family:var(--cth-font-mono);font-size:11px;outline:none">
+  </div>
+  <div class="yaz-satir">
+    <textarea id="inp" placeholder="Michael'a yaz…" rows="1" autocomplete="off"></textarea>
+    <button class="gonder" id="send" type="button">GÖNDER</button>
+  </div>
 </footer>
 
 <script>
@@ -390,13 +434,77 @@ button:disabled{opacity:.4}
       .then(function(r){ if(!r.ok) throw 0; return r.json(); })
       .then(function(d){
         renderOfis(d.ajanlar); renderGorevler(d.kartlar, d.biten); renderPlan(d.plan);
-        window.__durum=d;                 // oa-40 SOR sekmesi bunu kullanır
+        window.__durum=d;
+        renderSor(d.sorular);             // oa-40 SOR sekmesi + rozet
         dataSync=Date.now(); syncLabel();
-        if(window.__sorGuncelle) window.__sorGuncelle(d);
       })
       .catch(function(){})
       .then(function(){ pollingD=false; });
   }
+
+  /* ===================== SOR (ASK ME) + KOMUT paleti ===================== */
+  var sorPanel=document.getElementById("p-sor"), sorRozet=document.getElementById("sor-rozet");
+  var cevaplanan={};
+  try{ cevaplanan=JSON.parse(localStorage.getItem("mc-cevaplanan")||"{}")||{}; }catch(e){ cevaplanan={}; }
+  function cevaplandiKaydet(kart){ cevaplanan[kart]=Date.now(); try{ localStorage.setItem("mc-cevaplanan",JSON.stringify(cevaplanan)); }catch(e){} }
+  function komutYolla(text){ if(window.__mc) window.__mc.shortcut(text); else shortcut(text); }
+  function cevapla(kart, deger){
+    komutYolla("/cevap "+kart+" "+deger);
+    cevaplandiKaydet(kart);
+    if(window.__durum) renderSor(window.__durum.sorular);
+  }
+  // soru markdown'ından '1.'/'2.' seçeneklerini çıkar
+  function seceneklerBul(md){
+    var out=[]; String(md||"").replace(/\r/g,"").split("\n").forEach(function(ln){
+      var m=ln.match(/^\s*(\d+)\.\s+(.*)$/); if(m) out.push({n:m[1], t:m[2].trim()});
+    });
+    return out;
+  }
+  function renderSor(sorular){
+    sorPanel.innerHTML="";
+    var acik=(sorular||[]).filter(function(s){ return !cevaplanan[s.kart]; });
+    sorRozet.textContent=acik.length;
+    sorRozet.style.display=acik.length? "inline-block":"none";
+    if(!sorular || !sorular.length){ sorPanel.innerHTML='<div class="empty">Açık soru yok.</div>'; return; }
+    sorular.forEach(function(s){
+      var bitti=!!cevaplanan[s.kart];
+      var secs=seceneklerBul(s.soru);
+      var el=document.createElement("div"); el.className="soru"+(bitti?" cevaplandi":"");
+      var h='<div class="sbas"><span>'+esc(s.baslik||"")+" · "+esc(s.kart||"")+'</span>'+
+            (bitti?'<span class="rozet-gonder">✓ gönderildi</span>':'')+'</div>'+
+            '<div class="smetin md">'+ (renderMdString(s.soru)) +'</div>';
+      if(!bitti){
+        h+='<div class="secenekler">';
+        secs.forEach(function(o){ h+='<button class="sec-dugme" data-kart="'+esc(s.kart)+'" data-deger="'+esc(o.n)+'"><b>'+esc(o.n)+'</b>'+esc(o.t)+'</button>'; });
+        h+='</div>';
+        h+='<div class="serbest"><input placeholder="serbest cevap…" data-kart="'+esc(s.kart)+'"><button class="yolla" data-kart="'+esc(s.kart)+'">YOLLA</button></div>';
+      }
+      el.innerHTML=h; sorPanel.appendChild(el);
+    });
+  }
+  // renderPlan'ın ürettiği HTML'i bir string döndüren yardımcı (soru metni için)
+  function renderMdString(md){
+    var tmp=plan.innerHTML; renderPlan(md||""); var h=plan.querySelector(".md"); var out=h?h.innerHTML:""; plan.innerHTML=tmp; return out;
+  }
+  sorPanel.addEventListener("click",function(e){
+    var b=e.target.closest(".sec-dugme"); if(b){ cevapla(b.dataset.kart, b.dataset.deger); return; }
+    var y=e.target.closest(".yolla"); if(y){ var inp2=sorPanel.querySelector('.serbest input[data-kart="'+y.dataset.kart+'"]'); var v=inp2?inp2.value.trim():""; if(v) cevapla(y.dataset.kart, v); }
+  });
+  sorPanel.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ var i=e.target.closest('.serbest input'); if(i){ e.preventDefault(); var v=i.value.trim(); if(v) cevapla(i.dataset.kart, v); } }
+  });
+
+  // KOMUT paleti
+  var komutlar=document.getElementById("komutlar"), kcmd=document.getElementById("kcmd");
+  komutlar.addEventListener("click",function(e){
+    var c=e.target.closest(".kchip"); if(!c) return;
+    var k=c.dataset.k;
+    if(k==="@gorev"){ kcmd.value="/gorev "; kcmd.focus(); return; }  // id+durum kullanıcıdan
+    komutYolla(k);
+  });
+  kcmd.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ e.preventDefault(); var v=kcmd.value.trim(); if(v){ komutYolla(v); kcmd.value=""; } }
+  });
 
   /* ===================== sekmeler + zamanlayıcılar ===================== */
   var tabs=document.getElementById("tabs");
