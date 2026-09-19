@@ -51,6 +51,8 @@ header{
 .ava{width:34px;height:34px;flex:0 0 auto;border-radius:8px;
   border:1px solid var(--cth-connector);background:var(--cth-control-base);
   image-rendering:pixelated;image-rendering:crisp-edges}
+.ava-harf{display:flex;align-items:center;justify-content:center;box-sizing:border-box;
+  font-family:var(--cth-font-display);font-size:16px;font-weight:700;color:var(--cth-accent-text)}
 .htxt{flex:1;min-width:0}
 h1{margin:0;font-family:var(--cth-font-display);font-size:13px;letter-spacing:1px;
   color:var(--cth-accent-text);text-transform:uppercase;line-height:1.3}
@@ -219,6 +221,7 @@ main{flex:1 1 auto;overflow:hidden;min-width:0;position:relative;display:flex}
 #buyutec img{max-width:100%;max-height:100%;object-fit:contain;image-rendering:auto}
 /* oa-47 — mesaj içi gömülü görsel: link değil, doğrudan küçük resim (dokun→tam ekran) */
 .bubble .mesaj-gorseller{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.bubble a.mesaj-gorsel-link{display:block;max-width:100%;overflow-wrap:anywhere;word-break:break-all;color:var(--cth-accent-text);text-decoration:underline;user-select:text;-webkit-user-select:text}
 .bubble img.mesaj-gorsel{max-width:180px;max-height:150px;width:auto;height:auto;border-radius:8px;
   border:1px solid var(--cth-connector);cursor:zoom-in;background:var(--cth-control-base);display:block}
 /* oa-51 — eski mesajlar katlanır: açılışta yalnız son mesaj; başlık dokununca açılır (silme yok) */
@@ -288,7 +291,7 @@ button:disabled{opacity:.4}
 </head>
 <body>
 <header>
-  <img class="ava" src="michael.png" alt="Micheal" width="34" height="34">
+  <img class="ava" src="michael.png" alt="" width="34" height="34" onerror="this.onerror=null;var s=document.createElement('span');s.className='ava ava-harf';s.textContent='M';this.replaceWith(s)">
   <div class="htxt">
     <h1>MICHEAL</h1>
     <div class="sub" id="sub">SON GÜNCELLEME — · VERİ —</div>
@@ -400,6 +403,14 @@ button:disabled{opacity:.4}
       return '<img class="mesaj-gorsel" data-tam="'+esc(u)+'" src="'+esc(u)+'" alt="görsel" loading="lazy">';
     }).join("")+'</div>';
   }
+
+  // oa-53: görsel yüklenemezse URL, balonda tıklanabilir/kopyalanabilir metin bağlantı olarak geri gelir.
+  document.addEventListener("error",function(e){
+    var im=e.target; if(!im || im.tagName!=="IMG" || !im.classList.contains("mesaj-gorsel")) return;
+    var u=im.dataset.tam||im.getAttribute("src")||""; if(!u) return;
+    var a=document.createElement("a"); a.className="mesaj-gorsel-link"; a.href=u; a.target="_blank"; a.rel="noopener";
+    a.textContent=u; im.replaceWith(a);
+  },true);
 
   // oa-51: tek mesaj satırı üret (render + eski-mesaj katmanı paylaşır)
   function mesajSatiri(m){
@@ -760,21 +771,10 @@ button:disabled{opacity:.4}
     if(s.sonrasi) h+='<figure><img class="kucuk-gorsel" data-tam="'+esc(s.sonrasi)+'" src="'+esc(s.sonrasi)+'" alt="sonra"><figcaption>SONRA</figcaption></figure>';
     return h+'</div>';
   }
-  function renderSor(sorular){
-    // oa-47: yeniden çizmeden ÖNCE yazılmakta olan metni topla (tazeleme silmesin)
-    sorPanel.querySelectorAll('.serbest input').forEach(function(i){ var k=i.dataset.kart; if(k){ taslak[k]=i.value; } });
-    var acik=(sorular||[]).filter(function(s){ return !cevaplanan[s.kart]; });
-    sorRozet.textContent=acik.length;
-    sorRozet.style.display=acik.length? "inline-block":"none";
-    // oa-47: kullanıcı bir kutuya yazıyorsa yeniden çizmeyi ERTELE (imleç/metin kaybolmasın); yalnız rozet güncellendi
-    var af=document.activeElement;
-    if(af && sorPanel.contains(af) && (af.tagName==="INPUT"||af.tagName==="TEXTAREA")){ taslakKaydet(); return; }
-    sorPanel.innerHTML="";
-    if(!sorular || !sorular.length){ sorPanel.innerHTML='<div class="empty">Açık soru yok.</div>'; return; }
-    sorular.forEach(function(s){
+  function soruEl(s){
       var bitti=!!cevaplanan[s.kart];
       var anket=anketMi(s.soru);
-      var el=document.createElement("div"); el.className="soru"+(bitti?" cevaplandi":"");
+      var el=document.createElement("div"); el.className="soru"+(bitti?" cevaplandi":""); el.dataset.kart=String(s.kart||"");
       var kart=esc(s.kart||"");
       var h='<div class="sbas"><span>'+esc(s.baslik||"")+" · "+kart+'</span>'+
             (bitti?'<span class="rozet-gonder">✓ gönderildi</span>':'')+'</div>';
@@ -801,8 +801,27 @@ button:disabled{opacity:.4}
           h+='</div><div class="serbest"><input placeholder="serbest cevap…" data-kart="'+kart+'" value="'+esc(taslak[s.kart]||"")+'"><button class="yolla" data-kart="'+kart+'">YOLLA</button></div>';
         }
       }
-      el.innerHTML=h; sorPanel.appendChild(el);
-    });
+      el.innerHTML=h; return el;
+  }
+  function renderSor(sorular){
+    // oa-47: yeniden çizmeden ÖNCE yazılmakta olan metni topla (tazeleme silmesin)
+    sorPanel.querySelectorAll('.serbest input').forEach(function(i){ var k=i.dataset.kart; if(k){ taslak[k]=i.value; } });
+    var acik=(sorular||[]).filter(function(s){ return !cevaplanan[s.kart]; });
+    sorRozet.textContent=acik.length;
+    sorRozet.style.display=acik.length? "inline-block":"none";
+    // oa-47: kullanıcı bir kutuya yazıyorsa yeniden çizmeyi ERTELE (imleç/metin kaybolmasın); yalnız rozet güncellendi
+    var af=document.activeElement;
+    if(af && sorPanel.contains(af) && (af.tagName==="INPUT"||af.tagName==="TEXTAREA")){
+      // oa-53: odaktaki kutuya/metne dokunma; yalnız listede OLMAYAN yeni soruları sona ekle
+      taslakKaydet();
+      var bos=sorPanel.querySelector(":scope > .empty"); if(bos && sorular && sorular.length) bos.remove();
+      var var_=new Set(); sorPanel.querySelectorAll(":scope > .soru").forEach(function(n){ var_.add(n.dataset.kart); });
+      (sorular||[]).forEach(function(s){ if(!var_.has(String(s.kart||""))) sorPanel.appendChild(soruEl(s)); });
+      render(); return;
+    }
+    sorPanel.innerHTML="";
+    if(!sorular || !sorular.length){ sorPanel.innerHTML='<div class="empty">Açık soru yok.</div>'; return; }
+    sorular.forEach(function(s){ sorPanel.appendChild(soruEl(s)); });
     render();   // oa-51 (a): açık soru listesi değişince SOHBET'teki kompakt özeti de tazele
   }
   // renderPlan'ın ürettiği HTML'i bir string döndüren yardımcı (soru metni için)
