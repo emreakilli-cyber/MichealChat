@@ -221,6 +221,25 @@ main{flex:1 1 auto;overflow:hidden;min-width:0;position:relative;display:flex}
 .bubble .mesaj-gorseller{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .bubble img.mesaj-gorsel{max-width:180px;max-height:150px;width:auto;height:auto;border-radius:8px;
   border:1px solid var(--cth-connector);cursor:zoom-in;background:var(--cth-control-base);display:block}
+/* oa-51 — eski mesajlar katlanır: açılışta yalnız son mesaj; başlık dokununca açılır (silme yok) */
+.eski-sarmal{margin-bottom:10px}
+.eski-ac{width:100%;background:var(--cth-control-base);color:var(--cth-ink-500);
+  border:1px solid var(--cth-connector);border-radius:12px;padding:7px 12px;
+  font-family:var(--cth-font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;
+  cursor:pointer;text-align:center}
+.eski-ac::after{content:" ▾";opacity:.6}
+.eski-sarmal.acik .eski-ac::after{content:" ▴"}
+.eski-kutu{display:none;margin-top:8px}
+.eski-sarmal.acik .eski-kutu{display:block}
+/* oa-51 (a) — son mesajın altında açık ASK ME sorularının kompakt listesi */
+.acik-sarmal{margin-top:14px;border-top:1px solid var(--cth-connector);padding-top:10px}
+.acik-bas{font-family:var(--cth-font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--cth-accent-text);margin-bottom:6px}
+.acik-soru{display:block;width:100%;text-align:left;background:var(--cth-control-raised);
+  color:var(--cth-ink-800);border:1px solid var(--cth-connector);border-radius:10px;
+  padding:8px 10px;margin-bottom:6px;font-family:var(--cth-font-ui);font-size:13px;line-height:1.3;cursor:pointer}
+.acik-soru b{color:var(--cth-accent-text);font-family:var(--cth-font-mono);font-size:10px;margin-right:4px}
+.acik-alt{font-family:var(--cth-font-mono);font-size:9px;color:var(--cth-ink-500);text-align:right}
 
 /* ANKET: madde + 1–10 çip dizisi */
 .anket-madde{margin:8px 0;padding:8px;border:1px solid transparent;border-radius:8px}
@@ -382,26 +401,51 @@ button:disabled{opacity:.4}
     }).join("")+'</div>';
   }
 
+  // oa-51: tek mesaj satırı üret (render + eski-mesaj katmanı paylaşır)
+  function mesajSatiri(m){
+    var row=document.createElement("div");
+    row.className="row "+(m.from==="emre"?"emre":"michael");
+    var d="";
+    if(m.from==="emre" && m.durum==="gonderiliyor") d=' · gönderiliyor…';
+    else if(m.from==="emre" && m.durum==="gonderildi") d=' · <span class="ok">gönderildi</span>';
+    else if(m.from==="emre" && m.durum==="hata") d=' · <span class="hata">gönderilemedi: '+esc(m.hata||"")+'</span>';
+    var g=gorselAyir(m.text);
+    var govde=(g.temiz?esc(g.temiz):"")+gorsellerSatir(g.urls);
+    if(!govde) govde=esc(m.text);
+    row.innerHTML='<div class="bubble">'+govde+'</div>'+
+      '<div class="meta">'+(m.from==="emre"?"EMRE":"MICHEAL")+" · "+fmt(m.ts)+d+'</div>';
+    return row;
+  }
+  // oa-51 (a): son mesajın altında açık ASK ME sorularının kompakt listesi — sekme değiştirmeden.
+  function acikSorularOzeti(){
+    var sorular=(window.__durum && window.__durum.sorular) || [];
+    var acik=sorular.filter(function(s){ return !cevaplanan[s.kart]; });
+    if(!acik.length) return "";
+    var h='<div class="acik-bas">Açık sorular ('+acik.length+')</div>';
+    acik.forEach(function(s){
+      var ozet=String(s.soru||"").replace(/[*#`>_\[\]]/g,"").replace(/\s+/g," ").trim().slice(0,88);
+      h+='<button type="button" class="acik-soru" data-kart="'+esc(s.kart)+'"><b>'+esc(s.baslik||s.kart)+'</b> '+esc(ozet)+'…</button>';
+    });
+    return h+'<div class="acik-alt">ASK ME sekmesinde yanıtla →</div>';
+  }
+  var eskiAcik=false;   // oa-51: eski mesajlar katmanı açık mı (oturum içi)
   function render(){
-    sohbet.querySelectorAll(".row").forEach(function(n){n.remove();});
-    if(!mem.length){ empty.style.display="block"; }
-    else{
-      empty.style.display="none";
-      mem.forEach(function(m){
-        var row=document.createElement("div");
-        row.className="row "+(m.from==="emre"?"emre":"michael");
-        var d="";
-        if(m.from==="emre" && m.durum==="gonderiliyor") d=' · gönderiliyor…';
-        else if(m.from==="emre" && m.durum==="gonderildi") d=' · <span class="ok">gönderildi</span>';
-        else if(m.from==="emre" && m.durum==="hata") d=' · <span class="hata">gönderilemedi: '+esc(m.hata||"")+'</span>';
-        var g=gorselAyir(m.text);
-        var govde=(g.temiz?esc(g.temiz):"")+gorsellerSatir(g.urls);
-        if(!govde) govde=esc(m.text);
-        row.innerHTML='<div class="bubble">'+govde+'</div>'+
-          '<div class="meta">'+(m.from==="emre"?"EMRE":"MICHEAL")+" · "+fmt(m.ts)+d+'</div>';
-        sohbet.appendChild(row);
-      });
+    sohbet.querySelectorAll(".row, .eski-sarmal, .acik-sarmal").forEach(function(n){n.remove();});
+    if(!mem.length){ empty.style.display="block"; syncLabel(); return; }
+    empty.style.display="none";
+    // oa-51 — açılışta yalnız SON mesaj görünür; eskiler katlanır (SİLİNMEZ, mc-mesajlar korunur).
+    var son=mem.length-1;
+    if(son>0){
+      var sar=document.createElement("div"); sar.className="eski-sarmal"+(eskiAcik?" acik":"");
+      var bas=document.createElement("button"); bas.type="button"; bas.className="eski-ac";
+      bas.textContent="Eski mesajlar ("+son+")";
+      var kutu=document.createElement("div"); kutu.className="eski-kutu";
+      for(var i=0;i<son;i++) kutu.appendChild(mesajSatiri(mem[i]));
+      sar.appendChild(bas); sar.appendChild(kutu); sohbet.appendChild(sar);
     }
+    sohbet.appendChild(mesajSatiri(mem[son]));
+    var oz=acikSorularOzeti();
+    if(oz){ var od=document.createElement("div"); od.className="acik-sarmal"; od.innerHTML=oz; sohbet.appendChild(od); }
     syncLabel();
     sohbet.scrollTop=sohbet.scrollHeight;
   }
@@ -759,6 +803,7 @@ button:disabled{opacity:.4}
       }
       el.innerHTML=h; sorPanel.appendChild(el);
     });
+    render();   // oa-51 (a): açık soru listesi değişince SOHBET'teki kompakt özeti de tazele
   }
   // renderPlan'ın ürettiği HTML'i bir string döndüren yardımcı (soru metni için)
   function renderMdString(md){
@@ -832,7 +877,13 @@ button:disabled{opacity:.4}
   function dur(){ if(tChat){clearInterval(tChat);tChat=null;} if(tDurum){clearInterval(tDurum);tDurum=null;} }
 
   btn.addEventListener("click",sendOut);
-  sohbet.addEventListener("click",function(e){ var g=e.target.closest(".mesaj-gorsel"); if(g) buyutecAc(g.dataset.tam); });
+  sohbet.addEventListener("click",function(e){
+    var g=e.target.closest(".mesaj-gorsel"); if(g){ buyutecAc(g.dataset.tam); return; }
+    var b=e.target.closest(".eski-ac");   // oa-51: eski mesajları aç/kapat (silme yok)
+    if(b){ var w=b.closest(".eski-sarmal"); w.classList.toggle("acik"); eskiAcik=w.classList.contains("acik"); return; }
+    var s=e.target.closest(".acik-soru"); // oa-51 (a): açık soruya dokun → Sor sekmesi
+    if(s){ sekmeSec("sor"); }
+  });
   inp.addEventListener("input",autosize);
   inp.addEventListener("keydown",function(e){ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendOut(); } });
   window.addEventListener("hashchange",function(){ readIncoming(); gonderildiKontrol(); });
