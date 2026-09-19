@@ -189,6 +189,14 @@ button.gonder{flex:0 0 auto;height:42px;padding:0 18px;border:1px solid var(--ct
   cursor:pointer}
 button.gonder:active{background:var(--cth-accent-hover)}
 button:disabled{opacity:.4}
+
+/* ---- gönderildi bildirimi (x-callback dönüşü) ---- */
+#toast{position:fixed;left:50%;bottom:calc(74px + env(safe-area-inset-bottom));
+  transform:translateX(-50%) translateY(8px);background:var(--cth-mint-light);
+  color:var(--cth-mint);border:1px solid var(--cth-mint);border-radius:20px;
+  padding:8px 16px;font-family:var(--cth-font-mono);font-size:12px;letter-spacing:.3px;
+  box-shadow:var(--cth-shadow-hard);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:50}
+#toast.gor{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
@@ -321,10 +329,28 @@ button:disabled{opacity:.4}
       .catch(function(){})
       .then(function(){ polling=false; });
   }
-  // GİDEN: kestirmeyi tetikle (iMessage)
+  // GİDEN: kestirmeyi x-callback-url ile tetikle → kestirme bitince iOS sayfaya OTOMATİK döner
   function shortcut(text){
-    location.href="shortcuts://run-shortcut?name="+encodeURIComponent("Michaele-Yaz")+
-                  "&input=text&text="+encodeURIComponent(text);
+    var geri=location.origin+location.pathname+"#gonderildi";
+    location.href="shortcuts://x-callback-url/run-shortcut?name="+encodeURIComponent("Michaele-Yaz")+
+                  "&input=text&text="+encodeURIComponent(text)+
+                  "&x-success="+encodeURIComponent(geri)+
+                  "&x-error="+encodeURIComponent(geri);
+  }
+  // dönüşte 'gönderildi' rozeti (mesaj zaten yerelde eklendi; tekrar EKLENMEZ)
+  function gonderildiKontrol(){
+    if(/[#&]gonderildi/.test(location.hash||"")){
+      try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){ location.hash=""; }
+      toast("✓ gönderildi");
+    }
+  }
+  var toastT=null;
+  function toast(msg){
+    var t=document.getElementById("toast");
+    if(!t){ t=document.createElement("div"); t.id="toast"; document.body.appendChild(t); }
+    t.textContent=msg; t.classList.add("gor");
+    if(toastT) clearTimeout(toastT);
+    toastT=setTimeout(function(){ t.classList.remove("gor"); },2200);
   }
   function sendOut(){
     var t=inp.value.trim(); if(!t) return;
@@ -527,14 +553,14 @@ button:disabled{opacity:.4}
   btn.addEventListener("click",sendOut);
   inp.addEventListener("input",autosize);
   inp.addEventListener("keydown",function(e){ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendOut(); } });
-  window.addEventListener("hashchange",readIncoming);
-  window.addEventListener("pageshow",readIncoming);
+  window.addEventListener("hashchange",function(){ readIncoming(); gonderildiKontrol(); });
+  window.addEventListener("pageshow",function(){ readIncoming(); gonderildiKontrol(); });
   document.addEventListener("visibilitychange",function(){ if(document.hidden) dur(); else basla(); });
 
   // oa-40'ın kullanabilmesi için ortak yardımcıları aç
   window.__mc={ shortcut:shortcut, esc:esc, sekmeSec:sekmeSec };
 
-  load(); render(); readIncoming();
+  load(); render(); readIncoming(); gonderildiKontrol();
   try{ var s=localStorage.getItem("mc-sekme"); if(s) sekmeSec(s); }catch(e){}
   if(!document.hidden) basla();
 })();
