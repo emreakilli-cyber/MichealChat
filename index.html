@@ -217,6 +217,10 @@ main{flex:1 1 auto;overflow:hidden;min-width:0;position:relative;display:flex}
   z-index:100;padding:12px;cursor:zoom-out}
 #buyutec.gor{display:flex}
 #buyutec img{max-width:100%;max-height:100%;object-fit:contain;image-rendering:auto}
+/* oa-47 — mesaj içi gömülü görsel: link değil, doğrudan küçük resim (dokun→tam ekran) */
+.bubble .mesaj-gorseller{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.bubble img.mesaj-gorsel{max-width:180px;max-height:150px;width:auto;height:auto;border-radius:8px;
+  border:1px solid var(--cth-connector);cursor:zoom-in;background:var(--cth-control-base);display:block}
 
 /* ANKET: madde + 1–10 çip dizisi */
 .anket-madde{margin:8px 0;padding:8px;border:1px solid transparent;border-radius:8px}
@@ -365,6 +369,19 @@ button:disabled{opacity:.4}
   function hash(s){ var h=5381,i=s.length; while(i) h=(h*33)^s.charCodeAt(--i); return (h>>>0).toString(36); }
   function mkId(text,ts){ return hash(text+"|"+ts); }
 
+  // oa-47 — metindeki görsel URL'lerini ayıkla; kalan metin + URL listesi.
+  var IMG_RE=/https?:\/\/[^\s"'<>]+?\.(?:png|jpe?g|gif|webp)(?:\?[^\s"'<>]*)?/gi;
+  function gorselAyir(text){
+    var urls=[]; var temiz=String(text||"").replace(IMG_RE,function(u){ urls.push(u); return " "; });
+    return { temiz:temiz.replace(/[ \t]{2,}/g," ").trim(), urls:urls };
+  }
+  function gorsellerSatir(urls){
+    if(!urls || !urls.length) return "";
+    return '<div class="mesaj-gorseller">'+urls.map(function(u){
+      return '<img class="mesaj-gorsel" data-tam="'+esc(u)+'" src="'+esc(u)+'" alt="görsel" loading="lazy">';
+    }).join("")+'</div>';
+  }
+
   function render(){
     sohbet.querySelectorAll(".row").forEach(function(n){n.remove();});
     if(!mem.length){ empty.style.display="block"; }
@@ -377,7 +394,10 @@ button:disabled{opacity:.4}
         if(m.from==="emre" && m.durum==="gonderiliyor") d=' · gönderiliyor…';
         else if(m.from==="emre" && m.durum==="gonderildi") d=' · <span class="ok">gönderildi</span>';
         else if(m.from==="emre" && m.durum==="hata") d=' · <span class="hata">gönderilemedi: '+esc(m.hata||"")+'</span>';
-        row.innerHTML='<div class="bubble">'+esc(m.text)+'</div>'+
+        var g=gorselAyir(m.text);
+        var govde=(g.temiz?esc(g.temiz):"")+gorsellerSatir(g.urls);
+        if(!govde) govde=esc(m.text);
+        row.innerHTML='<div class="bubble">'+govde+'</div>'+
           '<div class="meta">'+(m.from==="emre"?"EMRE":"MICHEAL")+" · "+fmt(m.ts)+d+'</div>';
         sohbet.appendChild(row);
       });
@@ -651,6 +671,8 @@ button:disabled{opacity:.4}
   function cevapla(kart, deger){
     komutYolla("/cevap "+kart+" "+deger);
     cevaplandiKaydet(kart);
+    delete taslak[kart]; taslakKaydet();
+    delete anketSecim[kart]; anketSecimKaydet();
     if(window.__durum) renderSor(window.__durum.sorular);
   }
   // soru markdown'ından '1.'/'2.' seçeneklerini çıkar
@@ -661,7 +683,13 @@ button:disabled{opacity:.4}
     return out;
   }
   // ANKET: '1.'/'Ö1.' maddeleri + '1–10' geçen kart
-  var anketSecim={};   // { kart: { anahtar: n } } — yeniden çizimlerde korunur
+  var anketSecim={};   // { kart: { anahtar: n } } — yeniden çizimlerde ve sayfa yenilenince korunur
+  try{ anketSecim=JSON.parse(localStorage.getItem("mc-anket-secim")||"{}")||{}; }catch(e){ anketSecim={}; }
+  function anketSecimKaydet(){ try{ localStorage.setItem("mc-anket-secim",JSON.stringify(anketSecim)); }catch(e){} }
+  // oa-47 — serbest cevap taslağı: 30 sn'lik veri tazelemesi yazılan metni SİLMESİN.
+  var taslak={};       // { kart: "yazılmakta olan metin" }
+  try{ taslak=JSON.parse(localStorage.getItem("mc-taslak")||"{}")||{}; }catch(e){ taslak={}; }
+  function taslakKaydet(){ try{ localStorage.setItem("mc-taslak",JSON.stringify(taslak)); }catch(e){} }
   function anketAyristir(md){
     var items=[], intro=[];
     String(md||"").replace(/\r/g,"").split("\n").forEach(function(ln){
@@ -671,8 +699,9 @@ button:disabled{opacity:.4}
     return {items:items, intro:intro.join("\n").trim()};
   }
   function anketMi(md){
-    var a=anketAyristir(md);
-    return (a.items.length>=1 && /1\s*[–-]\s*10/.test(String(md||""))) ? a : null;
+    var a=anketAyristir(md), s=String(md||"");
+    var puanli=/1\s*[–-]\s*10/.test(s) || /1\s*ile\s*10/i.test(s);
+    return (a.items.length>=1 && puanli) ? a : null;
   }
   // görsel büyüteç (dokun→tam ekran, tekrar dokun→kapat)
   function buyutecAc(src){
@@ -688,10 +717,15 @@ button:disabled{opacity:.4}
     return h+'</div>';
   }
   function renderSor(sorular){
-    sorPanel.innerHTML="";
+    // oa-47: yeniden çizmeden ÖNCE yazılmakta olan metni topla (tazeleme silmesin)
+    sorPanel.querySelectorAll('.serbest input').forEach(function(i){ var k=i.dataset.kart; if(k){ taslak[k]=i.value; } });
     var acik=(sorular||[]).filter(function(s){ return !cevaplanan[s.kart]; });
     sorRozet.textContent=acik.length;
     sorRozet.style.display=acik.length? "inline-block":"none";
+    // oa-47: kullanıcı bir kutuya yazıyorsa yeniden çizmeyi ERTELE (imleç/metin kaybolmasın); yalnız rozet güncellendi
+    var af=document.activeElement;
+    if(af && sorPanel.contains(af) && (af.tagName==="INPUT"||af.tagName==="TEXTAREA")){ taslakKaydet(); return; }
+    sorPanel.innerHTML="";
     if(!sorular || !sorular.length){ sorPanel.innerHTML='<div class="empty">Açık soru yok.</div>'; return; }
     sorular.forEach(function(s){
       var bitti=!!cevaplanan[s.kart];
@@ -712,7 +746,7 @@ button:disabled{opacity:.4}
             for(var n=1;n<=10;n++) h+='<span class="cip'+(sec[it.anahtar]==n?" secili":"")+'" data-kart="'+kart+'" data-anahtar="'+esc(it.anahtar)+'" data-n="'+n+'">'+n+'</span>';
             h+='</div></div>';
           });
-          h+='<div class="serbest"><input class="anket-not" placeholder="serbest not…" data-kart="'+kart+'"><button class="anket-yolla" data-kart="'+kart+'">YOLLA</button></div>';
+          h+='<div class="serbest"><input class="anket-not" placeholder="serbest not…" data-kart="'+kart+'" value="'+esc(taslak[s.kart]||"")+'"><button class="anket-yolla" data-kart="'+kart+'">YOLLA</button></div>';
         }
       } else {
         // normal soru
@@ -720,7 +754,7 @@ button:disabled{opacity:.4}
         if(!bitti){
           h+='<div class="secenekler">';
           seceneklerBul(s.soru).forEach(function(o){ h+='<button class="sec-dugme" data-kart="'+kart+'" data-deger="'+esc(o.n)+'"><b>'+esc(o.n)+'</b>'+esc(o.t)+'</button>'; });
-          h+='</div><div class="serbest"><input placeholder="serbest cevap…" data-kart="'+kart+'"><button class="yolla" data-kart="'+kart+'">YOLLA</button></div>';
+          h+='</div><div class="serbest"><input placeholder="serbest cevap…" data-kart="'+kart+'" value="'+esc(taslak[s.kart]||"")+'"><button class="yolla" data-kart="'+kart+'">YOLLA</button></div>';
         }
       }
       el.innerHTML=h; sorPanel.appendChild(el);
@@ -737,7 +771,7 @@ button:disabled{opacity:.4}
     var c=e.target.closest(".cip");
     if(c){
       var k=c.dataset.kart, ah=c.dataset.anahtar, n=+c.dataset.n;
-      anketSecim[k]=anketSecim[k]||{}; anketSecim[k][ah]=n;
+      anketSecim[k]=anketSecim[k]||{}; anketSecim[k][ah]=n; anketSecimKaydet();
       var dizi=c.parentNode; dizi.querySelectorAll(".cip").forEach(function(x){ x.classList.toggle("secili", x===c); });
       var madde=c.closest(".anket-madde"); if(madde) madde.classList.remove("eksik");
       return;
@@ -761,6 +795,10 @@ button:disabled{opacity:.4}
   });
   sorPanel.addEventListener("keydown",function(e){
     if(e.key==="Enter"){ var i=e.target.closest('.serbest input'); if(i){ e.preventDefault(); var v=i.value.trim(); if(v) cevapla(i.dataset.kart, v); } }
+  });
+  // oa-47: her tuşta taslağı sakla — tazeleme araya girse de metin kaybolmaz
+  sorPanel.addEventListener("input",function(e){
+    var i=e.target.closest('.serbest input'); if(i){ var k=i.dataset.kart; if(k){ taslak[k]=i.value; taslakKaydet(); } }
   });
 
   // KOMUT paleti
@@ -794,6 +832,7 @@ button:disabled{opacity:.4}
   function dur(){ if(tChat){clearInterval(tChat);tChat=null;} if(tDurum){clearInterval(tDurum);tDurum=null;} }
 
   btn.addEventListener("click",sendOut);
+  sohbet.addEventListener("click",function(e){ var g=e.target.closest(".mesaj-gorsel"); if(g) buyutecAc(g.dataset.tam); });
   inp.addEventListener("input",autosize);
   inp.addEventListener("keydown",function(e){ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendOut(); } });
   window.addEventListener("hashchange",function(){ readIncoming(); gonderildiKontrol(); });
