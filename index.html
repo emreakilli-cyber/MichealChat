@@ -110,6 +110,27 @@ main{flex:1 1 auto;overflow:hidden;min-width:0;position:relative;display:flex}
   text-transform:uppercase;letter-spacing:.5px;cursor:pointer}
 .ayar-dugmeler button.ikincil{background:transparent;color:var(--cth-coral);border-color:var(--cth-coral)}
 .ayar-uyari{font-family:var(--cth-font-mono);font-size:11px;color:var(--cth-ink-500)}
+/* dişli + ayar katmanı (alttan açılan panel) */
+.disli{flex:0 0 auto;width:36px;height:36px;padding:0;border-radius:8px;border:1px solid var(--cth-connector);
+  background:var(--cth-control-base);color:var(--cth-ink-700);font-size:18px;line-height:1;cursor:pointer}
+.disli:active{background:var(--cth-surface-active)}
+#ayar-katman{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:80;
+  align-items:flex-end;justify-content:center}
+#ayar-katman.gor{display:flex}
+.ayar-sheet{width:100%;max-height:88vh;overflow-y:auto;background:var(--cth-cream-100);
+  border-top:1px solid var(--cth-connector);border-radius:16px 16px 0 0;
+  padding:8px 14px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;
+  box-shadow:var(--cth-shadow-hard)}
+.sheet-tut{width:38px;height:4px;border-radius:3px;background:var(--cth-connector);margin:4px auto 2px}
+.bildirim-satir{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
+.zil-dugme{height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--cth-connector);
+  background:var(--cth-control-base);color:var(--cth-ink-500);font-family:var(--cth-font-display);
+  font-size:9px;text-transform:uppercase;cursor:pointer}
+.zil-dugme.acik{background:var(--cth-mint-light);color:var(--cth-mint);border-color:var(--cth-mint)}
+.ses-secim{display:flex;gap:6px}
+.ses-secim .ses{flex:1;text-align:center;padding:8px;border:1px solid var(--cth-connector);border-radius:8px;
+  background:var(--cth-control-base);color:var(--cth-ink-700);font-family:var(--cth-font-mono);font-size:12px;cursor:pointer}
+.ses-secim .ses.secili{background:var(--cth-accent);color:var(--cth-accent-ink);border-color:var(--cth-accent-line)}
 
 /* ---- OFİS: ajan kartları ---- */
 .ajan{display:flex;align-items:center;gap:10px;background:var(--cth-control-raised);
@@ -249,6 +270,7 @@ button:disabled{opacity:.4}
     <h1>MICHEAL</h1>
     <div class="sub" id="sub">SON GÜNCELLEME — · VERİ —</div>
   </div>
+  <button class="disli" id="disli" type="button" aria-label="Ayarlar">⚙</button>
 </header>
 
 <nav class="tabs" id="tabs">
@@ -257,7 +279,6 @@ button:disabled{opacity:.4}
   <button class="tab" data-p="gorevler" type="button">Görevler</button>
   <button class="tab" data-p="plan" type="button">Plan</button>
   <button class="tab" data-p="sor" type="button">Sor<span class="rozet" id="sor-rozet" style="display:none">0</span></button>
-  <button class="tab" data-p="ayar" type="button">Ayar</button>
 </nav>
 
 <main>
@@ -268,19 +289,6 @@ button:disabled{opacity:.4}
   <section class="panel" id="p-gorevler"><div class="empty">Görev verisi bekleniyor…</div></section>
   <section class="panel" id="p-plan"><div class="empty">Plan bekleniyor…</div></section>
   <section class="panel" id="p-sor"><div class="empty">Açık soru yok.</div></section>
-  <section class="panel" id="p-ayar">
-    <div class="ayar-kutu">
-      <div class="ayar-bas">GÖNDERİM JETONU</div>
-      <div class="ayar-not">Jeton varsa mesaj/komut/cevap doğrudan GitHub'a yazılır — uygulama değiştirmeden. Yoksa Kestirmeler'e (iMessage) düşer.</div>
-      <div class="ayar-durum" id="jeton-durum">Jeton yok</div>
-      <input id="jeton-inp" type="password" placeholder="GitHub jetonu (gist yazma izni)" autocomplete="off" autocapitalize="off" spellcheck="false">
-      <div class="ayar-dugmeler">
-        <button id="jeton-kaydet" type="button">KAYDET</button>
-        <button id="jeton-sil" class="ikincil" type="button">SİL</button>
-      </div>
-      <div class="ayar-uyari">🔒 Jeton bu cihazda kalır, sayfa kaynağında yoktur.</div>
-    </div>
-  </section>
 </main>
 
 <footer id="chat-foot">
@@ -298,6 +306,34 @@ button:disabled{opacity:.4}
     <button class="gonder" id="send" type="button">GÖNDER</button>
   </div>
 </footer>
+
+<div id="ayar-katman">
+  <div class="ayar-sheet" id="ayar-sheet">
+    <div class="sheet-tut"></div>
+    <div class="ayar-kutu">
+      <div class="ayar-bas">GÖNDERİM JETONU</div>
+      <div class="ayar-not">Jeton varsa mesaj/komut/cevap doğrudan GitHub'a yazılır — uygulama değiştirmeden. Yoksa Kestirmeler'e (iMessage) düşer.</div>
+      <div class="ayar-durum" id="jeton-durum">Jeton yok</div>
+      <input id="jeton-inp" type="password" placeholder="GitHub jetonu (gist yazma izni)" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div class="ayar-dugmeler">
+        <button id="jeton-kaydet" type="button">KAYDET</button>
+        <button id="jeton-sil" class="ikincil" type="button">SİL</button>
+      </div>
+      <div class="ayar-uyari">🔒 Jeton bu cihazda kalır, sayfa kaynağında yoktur.</div>
+    </div>
+    <div class="ayar-kutu">
+      <div class="ayar-bas">BİLDİRİMLER</div>
+      <div class="bildirim-satir"><span>Zil &amp; sistem bildirimi</span>
+        <button id="zil-dugme" class="zil-dugme" type="button">KAPALI</button></div>
+      <div class="ses-secim" id="ses-secim">
+        <span class="ses" data-ses="ding">Ding</span>
+        <span class="ses" data-ses="cift">Çift</span>
+        <span class="ses" data-ses="yumusak">Yumuşak</span>
+      </div>
+      <div class="ayar-uyari">Sayfa kapalıyken bildirim gelmez; kapalıyken iMessage bildirimi uyarır.</div>
+    </div>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -370,25 +406,52 @@ button:disabled{opacity:.4}
   }
   function hasId(id){ for(var i=0;i<mem.length;i++) if(mem[i].id===id) return true; return false; }
   function ingest(arr){
-    if(!Array.isArray(arr)) return;
-    var changed=false;
+    if(!Array.isArray(arr)) return 0;
+    var eklendi=0, sonMetin="";
     for(var i=0;i<arr.length;i++){
       var it=arr[i]; if(!it || it.text==null) continue;
       var txt=String(it.text); if(!txt.trim()) continue;
       var ts=it.ts||Date.now(); var id=it.id||mkId(txt,ts);
       if(hasId(id)) continue;
-      mem.push({id:id,from:"michael",text:txt,ts:ts}); changed=true;
+      mem.push({id:id,from:"michael",text:txt,ts:ts}); eklendi++; sonMetin=txt;
     }
-    if(changed){ mem.sort(function(a,b){return (a.ts||0)-(b.ts||0);}); save(); render(); }
+    if(eklendi){ mem.sort(function(a,b){return (a.ts||0)-(b.ts||0);}); save(); render(); }
+    window.__sonGelen=sonMetin;
+    return eklendi;
   }
-  var polling=false;
+  var polling=false, ilkCekis=true;
   function pollGist(){
     if(polling) return; polling=true;
-    fetch(GIST+"?t="+Date.now(),{cache:"no-store"})
-      .then(function(r){ if(!r.ok) throw 0; return r.json(); })
-      .then(function(data){ ingest(data); lastSync=Date.now(); syncLabel(); })
+    gistDosyaOku("MichealChat", GIST)
+      .then(function(txt){
+        var yeni=0; try{ yeni=ingest(JSON.parse(txt||"[]")); }catch(e){}
+        if(yeni>0 && !ilkCekis) yeniMesajBildir(yeni);
+        ilkCekis=false; lastSync=Date.now(); syncLabel();
+      })
       .catch(function(){})
       .then(function(){ polling=false; });
+  }
+
+  // ---- ZİL & BİLDİRİM ----
+  function zilAcik(){ try{ return localStorage.getItem("mc-zil")==="on"; }catch(e){ return false; } }
+  function sesAdi(){ try{ return localStorage.getItem("mc-zil-ses")||"ding"; }catch(e){ return "ding"; } }
+  var _ac=null, SESLER={ding:[880],cift:[660,990],yumusak:[523,392]};
+  function ac(){ try{ _ac=_ac||new (window.AudioContext||window.webkitAudioContext)(); return _ac; }catch(e){ return null; } }
+  function ton(freqler){
+    var c=ac(); if(!c) return; if(c.state==="suspended"){ try{ c.resume(); }catch(e){} }
+    var t=c.currentTime, sure=0.16;
+    freqler.forEach(function(f){
+      var o=c.createOscillator(), g=c.createGain(); o.type="sine"; o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.25,t+0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+sure);
+      o.connect(g).connect(c.destination); o.start(t); o.stop(t+sure); t+=sure*0.9;
+    });
+  }
+  function zilCal(){ ton(SESLER[sesAdi()]||SESLER.ding); }
+  function yeniMesajBildir(n){
+    if(zilAcik()) zilCal();
+    try{ if(window.Notification && Notification.permission==="granted")
+      new Notification("Micheal", {body:(window.__sonGelen||("Yeni mesaj ("+n+")")), icon:"michael-192.png"}); }catch(e){}
   }
   // GİDEN: kestirmeyi x-callback-url ile tetikle → kestirme bitince iOS sayfaya OTOMATİK döner
   function shortcut(text){
@@ -403,6 +466,17 @@ button:disabled{opacity:.4}
   var GIST_ID="44a280481043c781c59857e6389f5ef5", GIST_DOSYA="MichealChat";
   function jetonAl(){ try{ return localStorage.getItem("mc-jeton")||""; }catch(e){ return ""; } }
   function ghBaslik(jt){ return {Authorization:"Bearer "+jt, Accept:"application/vnd.github+json"}; }
+  // OKUMA: jeton varsa API'den (önbelleksiz, CDN gecikmesi yok), yoksa ham adres. String döndürür.
+  function gistDosyaOku(dosya, ham){
+    var jt=jetonAl();
+    if(jt){
+      return fetch("https://api.github.com/gists/"+GIST_ID+"?t="+Date.now(),{headers:ghBaslik(jt),cache:"no-store"})
+        .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function(g){ var d=(g.files&&g.files[dosya])||{}; return d.content||""; });
+    }
+    return fetch(ham+"?t="+Date.now(),{cache:"no-store"})
+      .then(function(r){ if(!r.ok) throw new Error(r.status); return r.text(); });
+  }
   // yarış: taze çek → kendi mesajını ekle → son 200 → PATCH; 409'da tek yeniden
   function gistYaz(text, jt, ts){
     var api="https://api.github.com/gists/"+GIST_ID;
@@ -552,9 +626,9 @@ button:disabled{opacity:.4}
   var pollingD=false;
   function pollDurum(){
     if(pollingD) return; pollingD=true;
-    fetch(DURUM+"?t="+Date.now(),{cache:"no-store"})
-      .then(function(r){ if(!r.ok) throw 0; return r.json(); })
-      .then(function(d){
+    gistDosyaOku("durum.json", DURUM)
+      .then(function(txt){
+        var d=JSON.parse(txt||"{}");
         renderOfis(d.ajanlar); renderGorevler(d.kartlar, d.biten); renderPlan(d.plan);
         window.__durum=d;
         renderSor(d.sorular);             // oa-40 SOR sekmesi + rozet
@@ -749,8 +823,35 @@ button:disabled{opacity:.4}
     jetonInp.value=""; jetonDurumGuncelle(); toast("jeton silindi");
   });
 
-  load(); render(); readIncoming(); gonderildiKontrol(); jetonDurumGuncelle();
-  try{ var s=localStorage.getItem("mc-sekme"); if(s) sekmeSec(s); }catch(e){}
+  // ---- dişli: ayar katmanını aç/kapat ----
+  var disli=document.getElementById("disli"), ayarKatman=document.getElementById("ayar-katman"),
+      ayarSheet=document.getElementById("ayar-sheet");
+  disli.addEventListener("click",function(){ ayarKatman.classList.add("gor"); });
+  ayarKatman.addEventListener("click",function(e){ if(!ayarSheet.contains(e.target)) ayarKatman.classList.remove("gor"); });
+
+  // ---- zil & ses ----
+  var zilDugme=document.getElementById("zil-dugme"), sesSecim=document.getElementById("ses-secim");
+  function zilDurumGuncelle(){
+    var a=zilAcik(); zilDugme.textContent=a?"AÇIK":"KAPALI"; zilDugme.classList.toggle("acik",a);
+    sesSecim.querySelectorAll(".ses").forEach(function(x){ x.classList.toggle("secili", x.dataset.ses===sesAdi()); });
+  }
+  zilDugme.addEventListener("click",function(){
+    var yeni=!zilAcik();
+    try{ localStorage.setItem("mc-zil", yeni?"on":"off"); }catch(e){}
+    if(yeni){
+      try{ if(window.Notification && Notification.permission==="default") Notification.requestPermission(); }catch(e){}
+      zilCal();                       // kullanıcı hareketi: sesi aç + önizle
+    }
+    zilDurumGuncelle();
+  });
+  sesSecim.addEventListener("click",function(e){
+    var s=e.target.closest(".ses"); if(!s) return;
+    try{ localStorage.setItem("mc-zil-ses", s.dataset.ses); }catch(e2){}
+    zilDurumGuncelle(); zilCal();      // önizleme
+  });
+
+  load(); render(); readIncoming(); gonderildiKontrol(); jetonDurumGuncelle(); zilDurumGuncelle();
+  try{ var s=localStorage.getItem("mc-sekme"); if(s && document.getElementById("p-"+s)) sekmeSec(s); }catch(e){}
   if(!document.hidden) basla();
 })();
 </script>
