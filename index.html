@@ -91,6 +91,25 @@ main{flex:1 1 auto;overflow:hidden;min-width:0;position:relative;display:flex}
   border-bottom-left-radius:4px}
 .meta{margin-top:3px;font-family:var(--cth-font-mono);font-size:9px;color:var(--cth-ink-500);
   text-transform:uppercase;letter-spacing:.5px;padding:0 4px}
+.meta .ok{color:var(--cth-mint)}
+.meta .hata{color:var(--cth-coral)}
+
+/* ---- AYAR: jeton ---- */
+.ayar-kutu{background:var(--cth-control-raised);border:1px solid var(--cth-connector);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.ayar-bas{font-family:var(--cth-font-display);font-size:10px;letter-spacing:.5px;color:var(--cth-accent-text);text-transform:uppercase}
+.ayar-not{font-size:13px;color:var(--cth-ink-700);line-height:1.35}
+.ayar-durum{font-family:var(--cth-font-mono);font-size:12px;color:var(--cth-ink-500);
+  background:var(--cth-control-base);border:1px solid var(--cth-connector);border-radius:8px;padding:8px 10px}
+.ayar-durum.var{color:var(--cth-mint);border-color:var(--cth-mint)}
+#jeton-inp{background:var(--cth-control-base);color:var(--cth-ink-900);border:1px solid var(--cth-connector);
+  border-radius:8px;padding:10px 12px;font-family:var(--cth-font-mono);font-size:14px;outline:none}
+#jeton-inp:focus{border-color:var(--cth-accent)}
+.ayar-dugmeler{display:flex;gap:8px}
+.ayar-dugmeler button{flex:1;height:40px;border-radius:8px;border:1px solid var(--cth-accent-line);
+  background:var(--cth-accent);color:var(--cth-accent-ink);font-family:var(--cth-font-display);font-size:9px;
+  text-transform:uppercase;letter-spacing:.5px;cursor:pointer}
+.ayar-dugmeler button.ikincil{background:transparent;color:var(--cth-coral);border-color:var(--cth-coral)}
+.ayar-uyari{font-family:var(--cth-font-mono);font-size:11px;color:var(--cth-ink-500)}
 
 /* ---- OFİS: ajan kartları ---- */
 .ajan{display:flex;align-items:center;gap:10px;background:var(--cth-control-raised);
@@ -214,6 +233,7 @@ button:disabled{opacity:.4}
   <button class="tab" data-p="gorevler" type="button">Görevler</button>
   <button class="tab" data-p="plan" type="button">Plan</button>
   <button class="tab" data-p="sor" type="button">Sor<span class="rozet" id="sor-rozet" style="display:none">0</span></button>
+  <button class="tab" data-p="ayar" type="button">Ayar</button>
 </nav>
 
 <main>
@@ -224,6 +244,19 @@ button:disabled{opacity:.4}
   <section class="panel" id="p-gorevler"><div class="empty">Görev verisi bekleniyor…</div></section>
   <section class="panel" id="p-plan"><div class="empty">Plan bekleniyor…</div></section>
   <section class="panel" id="p-sor"><div class="empty">Açık soru yok.</div></section>
+  <section class="panel" id="p-ayar">
+    <div class="ayar-kutu">
+      <div class="ayar-bas">GÖNDERİM JETONU</div>
+      <div class="ayar-not">Jeton varsa mesaj/komut/cevap doğrudan GitHub'a yazılır — uygulama değiştirmeden. Yoksa Kestirmeler'e (iMessage) düşer.</div>
+      <div class="ayar-durum" id="jeton-durum">Jeton yok</div>
+      <input id="jeton-inp" type="password" placeholder="GitHub jetonu (gist yazma izni)" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div class="ayar-dugmeler">
+        <button id="jeton-kaydet" type="button">KAYDET</button>
+        <button id="jeton-sil" class="ikincil" type="button">SİL</button>
+      </div>
+      <div class="ayar-uyari">🔒 Jeton bu cihazda kalır, sayfa kaynağında yoktur.</div>
+    </div>
+  </section>
 </main>
 
 <footer id="chat-foot">
@@ -280,8 +313,12 @@ button:disabled{opacity:.4}
       mem.forEach(function(m){
         var row=document.createElement("div");
         row.className="row "+(m.from==="emre"?"emre":"michael");
+        var d="";
+        if(m.from==="emre" && m.durum==="gonderiliyor") d=' · gönderiliyor…';
+        else if(m.from==="emre" && m.durum==="gonderildi") d=' · <span class="ok">gönderildi</span>';
+        else if(m.from==="emre" && m.durum==="hata") d=' · <span class="hata">gönderilemedi: '+esc(m.hata||"")+'</span>';
         row.innerHTML='<div class="bubble">'+esc(m.text)+'</div>'+
-          '<div class="meta">'+(m.from==="emre"?"EMRE":"MICHEAL")+" · "+fmt(m.ts)+'</div>';
+          '<div class="meta">'+(m.from==="emre"?"EMRE":"MICHEAL")+" · "+fmt(m.ts)+d+'</div>';
         sohbet.appendChild(row);
       });
     }
@@ -337,6 +374,32 @@ button:disabled{opacity:.4}
                   "&x-success="+encodeURIComponent(geri)+
                   "&x-error="+encodeURIComponent(geri);
   }
+
+  // ---- DOĞRUDAN GİST (jeton varsa; jeton yalnız localStorage'da, kaynağa/gist'e/log'a YAZILMAZ) ----
+  var GIST_ID="44a280481043c781c59857e6389f5ef5", GIST_DOSYA="MichealChat";
+  function jetonAl(){ try{ return localStorage.getItem("mc-jeton")||""; }catch(e){ return ""; } }
+  function ghBaslik(jt){ return {Authorization:"Bearer "+jt, Accept:"application/vnd.github+json"}; }
+  // yarış: taze çek → kendi mesajını ekle → son 200 → PATCH; 409'da tek yeniden
+  function gistYaz(text, jt, ts){
+    var api="https://api.github.com/gists/"+GIST_ID;
+    function dene(){
+      return fetch(api+"?t="+Date.now(),{headers:ghBaslik(jt),cache:"no-store"})
+        .then(function(r){ if(!r.ok) throw new Error("okuma "+r.status); return r.json(); })
+        .then(function(g){
+          var d=(g.files&&g.files[GIST_DOSYA])||{}, arr;
+          try{ arr=JSON.parse(d.content||"[]"); if(!Array.isArray(arr)) arr=[]; }catch(e){ arr=[]; }
+          if(!arr.some(function(x){return x&&x.id===mkId(text,ts);}))
+            arr.push({id:mkId(text,ts), from:"emre", text:text, ts:ts});
+          if(arr.length>200) arr=arr.slice(arr.length-200);
+          var body={}; body[GIST_DOSYA]={content:JSON.stringify(arr)};
+          return fetch(api,{method:"PATCH",headers:Object.assign({"Content-Type":"application/json"},ghBaslik(jt)),
+            body:JSON.stringify({files:body})});
+        });
+    }
+    return dene().then(function(r){ return r.status===409 ? dene() : r; })
+      .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return {ok:true}; })
+      .catch(function(e){ return {ok:false, sebep:(e&&e.message)||"ağ hatası"}; });
+  }
   // dönüşte 'gönderildi' rozeti (mesaj zaten yerelde eklendi; tekrar EKLENMEZ)
   function gonderildiKontrol(){
     if(/[#&]gonderildi/.test(location.hash||"")){
@@ -352,9 +415,18 @@ button:disabled{opacity:.4}
     if(toastT) clearTimeout(toastT);
     toastT=setTimeout(function(){ t.classList.remove("gor"); },2200);
   }
+  function memBul(id){ for(var i=mem.length-1;i>=0;i--) if(mem[i].id===id) return mem[i]; return null; }
   function sendOut(){
     var t=inp.value.trim(); if(!t) return;
-    add("emre",t,Date.now()); inp.value=""; autosize(); shortcut(t);
+    var ts=Date.now(), id=mkId(t,ts);
+    add("emre",t,ts); inp.value=""; autosize();
+    var jt=jetonAl();
+    if(jt){                                  // doğrudan gist: uygulama değiştirme yok
+      var m=memBul(id); if(m){ m.durum="gonderiliyor"; render(); }
+      gistYaz(t,jt,ts).then(function(res){
+        var mm=memBul(id); if(mm){ mm.durum=res.ok?"gonderildi":"hata"; if(!res.ok) mm.hata=res.sebep; save(); render(); }
+      });
+    } else { shortcut(t); }                   // yedek: x-callback (dönüşte toast)
   }
   function autosize(){ inp.style.height="auto"; inp.style.height=Math.min(inp.scrollHeight,120)+"px"; }
 
@@ -473,7 +545,11 @@ button:disabled{opacity:.4}
   var cevaplanan={};
   try{ cevaplanan=JSON.parse(localStorage.getItem("mc-cevaplanan")||"{}")||{}; }catch(e){ cevaplanan={}; }
   function cevaplandiKaydet(kart){ cevaplanan[kart]=Date.now(); try{ localStorage.setItem("mc-cevaplanan",JSON.stringify(cevaplanan)); }catch(e){} }
-  function komutYolla(text){ if(window.__mc) window.__mc.shortcut(text); else shortcut(text); }
+  function komutYolla(text){                 // SOR cevabı / komut paleti: jeton varsa doğrudan, yoksa kestirme
+    var jt=jetonAl();
+    if(jt){ gistYaz(text,jt,Date.now()).then(function(res){ toast(res.ok?"✓ gönderildi":"⚠ gönderilemedi: "+res.sebep); }); }
+    else { shortcut(text); }
+  }
   function cevapla(kart, deger){
     komutYolla("/cevap "+kart+" "+deger);
     cevaplandiKaydet(kart);
@@ -560,7 +636,27 @@ button:disabled{opacity:.4}
   // oa-40'ın kullanabilmesi için ortak yardımcıları aç
   window.__mc={ shortcut:shortcut, esc:esc, sekmeSec:sekmeSec };
 
-  load(); render(); readIncoming(); gonderildiKontrol();
+  // ---- AYAR: jeton kutusu ----
+  var jetonInp=document.getElementById("jeton-inp"),
+      jetonDurum=document.getElementById("jeton-durum"),
+      jetonKaydet=document.getElementById("jeton-kaydet"),
+      jetonSil=document.getElementById("jeton-sil");
+  function jetonDurumGuncelle(){
+    var jt=jetonAl();
+    jetonDurum.textContent = jt ? ("Jeton kayıtlı · ····"+jt.slice(-4)) : "Jeton yok";
+    jetonDurum.className = "ayar-durum"+(jt?" var":"");
+  }
+  jetonKaydet.addEventListener("click",function(){
+    var v=jetonInp.value.trim(); if(!v) return;
+    try{ localStorage.setItem("mc-jeton",v); }catch(e){}
+    jetonInp.value=""; jetonDurumGuncelle(); toast("✓ jeton kaydedildi");
+  });
+  jetonSil.addEventListener("click",function(){
+    try{ localStorage.removeItem("mc-jeton"); }catch(e){}
+    jetonInp.value=""; jetonDurumGuncelle(); toast("jeton silindi");
+  });
+
+  load(); render(); readIncoming(); gonderildiKontrol(); jetonDurumGuncelle();
   try{ var s=localStorage.getItem("mc-sekme"); if(s) sekmeSec(s); }catch(e){}
   if(!document.hidden) basla();
 })();
